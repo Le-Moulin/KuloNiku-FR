@@ -5,7 +5,7 @@
 [Voir KuloNiku: Bowl Up! sur Steam](https://store.steampowered.com/app/3357960/KuloNiku_Bowl_Up/)
 · [README English version](README.en.md)
 
-![Tests](https://github.com/BertrandVillien/KuloNiku-FR/actions/workflows/ci.yml/badge.svg)
+![Tests](https://github.com/Le-Moulin/KuloNiku-FR/actions/workflows/ci.yml/badge.svg)
 ![macOS testé](https://img.shields.io/badge/macOS-test%C3%A9-2ea44f)
 ![Windows testé](https://img.shields.io/badge/Windows-test%C3%A9-2ea44f)
 ![Steam Deck testé](https://img.shields.io/badge/Steam%20Deck-test%C3%A9-2ea44f)
@@ -19,7 +19,7 @@ est gratuit, non officiel et ne contient aucun fichier complet du jeu.
 
 Téléchargez l’installateur correspondant à votre appareil — Windows, macOS ou
 Steam Deck — sur la [page des releases de KuloNiku
-FR](https://github.com/BertrandVillien/KuloNiku-FR/releases), puis suivez les
+FR](https://github.com/Le-Moulin/KuloNiku-FR/releases), puis suivez les
 instructions d’installation.
 
 ![Installateur macOS prêt à installer la traduction française](docs/assets/kuloniku-fr-installer-macos.png)
@@ -74,9 +74,9 @@ Les propositions exportées peuvent ensuite être installées temporairement ave
 
 Vous pouvez également :
 
-- [transmettre une relecture préparée](https://github.com/BertrandVillien/KuloNiku-FR/issues/new?template=review.yml) ;
-- [proposer une correction française](https://github.com/BertrandVillien/KuloNiku-FR/issues/new?template=translation.yml) ;
-- [signaler un problème d’installation](https://github.com/BertrandVillien/KuloNiku-FR/issues/new?template=installation.yml) ;
+- [transmettre une relecture préparée](https://github.com/Le-Moulin/KuloNiku-FR/issues/new?template=review.yml) ;
+- [proposer une correction française](https://github.com/Le-Moulin/KuloNiku-FR/issues/new?template=translation.yml) ;
+- [signaler un problème d’installation](https://github.com/Le-Moulin/KuloNiku-FR/issues/new?template=installation.yml) ;
 - joindre une capture pour montrer le contexte ou un texte trop long.
 
 Ne joignez jamais un fichier du jeu ou une extraction complète. Pour contribuer

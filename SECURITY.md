@@ -7,11 +7,11 @@ le remplacement d’un fichier arbitraire, le contournement d’une vérificatio
 d’empreinte ou l’usurpation d’une mise à jour.
 
 Utilisez la fonction privée
-[« Report a vulnerability »](https://github.com/BertrandVillien/KuloNiku-FR/security/advisories/new)
+[« Report a vulnerability »](https://github.com/Le-Moulin/KuloNiku-FR/security/advisories/new)
 de l’onglet **Security** du dépôt GitHub.
 
 Pour un faux positif antivirus sans détail exploitable, utilisez le formulaire
-public de [problème d’installation](https://github.com/BertrandVillien/KuloNiku-FR/issues/new?template=installation.yml)
+public de [problème d’installation](https://github.com/Le-Moulin/KuloNiku-FR/issues/new?template=installation.yml)
 en indiquant la release, la plateforme et
 l’empreinte du fichier, sans joindre de données personnelles.
 

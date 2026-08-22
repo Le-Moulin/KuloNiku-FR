@@ -2,7 +2,7 @@
 
 This method is intended for people who want to inspect, modify, or test the
 code. For a normal installation, use the
-[latest release](https://github.com/BertrandVillien/KuloNiku-FR/releases).
+[latest release](https://github.com/Le-Moulin/KuloNiku-FR/releases).
 
 ## Requirements
 

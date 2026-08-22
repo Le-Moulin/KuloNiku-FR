@@ -5,7 +5,7 @@
 [View KuloNiku: Bowl Up! on Steam](https://store.steampowered.com/app/3357960/KuloNiku_Bowl_Up/)
 · [Version française](README.md)
 
-![Tests](https://github.com/BertrandVillien/KuloNiku-FR/actions/workflows/ci.yml/badge.svg)
+![Tests](https://github.com/Le-Moulin/KuloNiku-FR/actions/workflows/ci.yml/badge.svg)
 ![macOS tested](https://img.shields.io/badge/macOS-tested-2ea44f)
 ![Windows tested](https://img.shields.io/badge/Windows-tested-2ea44f)
 ![Steam Deck tested](https://img.shields.io/badge/Steam%20Deck-tested-2ea44f)
@@ -19,7 +19,7 @@ unofficial, and does not contain any complete game file.
 
 Download the installer for your device — Windows, macOS, or Steam Deck — from
 the [KuloNiku FR releases
-page](https://github.com/BertrandVillien/KuloNiku-FR/releases), then follow the
+page](https://github.com/Le-Moulin/KuloNiku-FR/releases), then follow the
 installation instructions.
 
 ![macOS installer ready to install the French translation](docs/assets/kuloniku-fr-installer-macos.png)
@@ -72,9 +72,9 @@ an in-game check.
 
 You can also:
 
-- [submit a prepared review](https://github.com/BertrandVillien/KuloNiku-FR/issues/new?template=review.yml);
-- [suggest a French correction](https://github.com/BertrandVillien/KuloNiku-FR/issues/new?template=translation.yml);
-- [report an installation issue](https://github.com/BertrandVillien/KuloNiku-FR/issues/new?template=installation.yml);
+- [submit a prepared review](https://github.com/Le-Moulin/KuloNiku-FR/issues/new?template=review.yml);
+- [suggest a French correction](https://github.com/Le-Moulin/KuloNiku-FR/issues/new?template=translation.yml);
+- [report an installation issue](https://github.com/Le-Moulin/KuloNiku-FR/issues/new?template=installation.yml);
 - attach a screenshot to show the context or an overflowing string.
 
 Never attach a game file or a complete extraction. To contribute with Git,

@@ -8,7 +8,7 @@ SteamOS.
 
 1. Installez KuloNiku depuis Steam et lancez-le une première fois.
 2. Passez en **mode Bureau** : **Steam > Marche/Arrêt > Passer en mode Bureau**.
-3. [Téléchargez l’AppImage Steam Deck](https://github.com/BertrandVillien/KuloNiku-FR/releases/latest/download/KuloNiku-FR-Steam-Deck-x86_64.AppImage).
+3. [Téléchargez l’AppImage Steam Deck](https://github.com/Le-Moulin/KuloNiku-FR/releases/latest/download/KuloNiku-FR-Steam-Deck-x86_64.AppImage).
 4. Dans **Dolphin > Téléchargements**, faites un clic droit sur le fichier.
 5. Ouvrez **Propriétés > Permissions** et cochez **Est exécutable**.
 6. Double-cliquez sur l’AppImage, puis choisissez **Lancer** si demandé.
@@ -50,4 +50,4 @@ Vous pourrez réinstaller le français plus tard avec la même AppImage.
   **Restaurer l’original**.
 
 [Questions fréquentes](FAQ.md)
-· [Signaler un problème](https://github.com/BertrandVillien/KuloNiku-FR/issues/new?template=installation.yml)
+· [Signaler un problème](https://github.com/Le-Moulin/KuloNiku-FR/issues/new?template=installation.yml)

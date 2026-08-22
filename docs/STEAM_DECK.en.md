@@ -7,7 +7,7 @@ done in Desktop Mode without a Terminal or any SteamOS modification.
 
 1. Install KuloNiku from Steam and launch it once.
 2. Select **Steam > Power > Switch to Desktop**.
-3. [Download the Steam Deck AppImage](https://github.com/BertrandVillien/KuloNiku-FR/releases/latest/download/KuloNiku-FR-Steam-Deck-x86_64.AppImage).
+3. [Download the Steam Deck AppImage](https://github.com/Le-Moulin/KuloNiku-FR/releases/latest/download/KuloNiku-FR-Steam-Deck-x86_64.AppImage).
 4. In **Dolphin > Downloads**, right-click the file.
 5. Open **Properties > Permissions** and enable **Is executable**.
 6. Double-click the AppImage and choose **Launch** if asked.
@@ -49,4 +49,4 @@ French can be installed again later with the same AppImage.
   **Restaurer l’original**.
 
 [Frequently asked questions](FAQ.md)
-· [Report a problem](https://github.com/BertrandVillien/KuloNiku-FR/issues/new?template=installation.yml)
+· [Report a problem](https://github.com/Le-Moulin/KuloNiku-FR/issues/new?template=installation.yml)

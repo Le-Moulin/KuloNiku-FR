@@ -262,7 +262,7 @@ REVIEW_HTML = r'''<!doctype html>
 </head>
 <body>
 <div class="shell">
-  <header class="top"><div><h1>Espace de relecture KuloNiku FR</h1><p>Explorez librement les textes et sélectionnez seulement ceux sur lesquels vous souhaitez intervenir.</p></div><div class="top-actions"><a class="project-link" href="https://github.com/BertrandVillien/KuloNiku-FR" target="_blank" rel="noreferrer">Projet GitHub ↗</a><span class="offline">100 % hors ligne</span></div></header>
+  <header class="top"><div><h1>Espace de relecture KuloNiku FR</h1><p>Explorez librement les textes et sélectionnez seulement ceux sur lesquels vous souhaitez intervenir.</p></div><div class="top-actions"><a class="project-link" href="https://github.com/Le-Moulin/KuloNiku-FR" target="_blank" rel="noreferrer">Projet GitHub ↗</a><span class="offline">100 % hors ligne</span></div></header>
   <div class="warning"><b>Document privé de travail.</b> Il contient des textes extraits de votre copie du jeu. Ne le publiez pas et ne l’ajoutez pas au dépôt.</div>
   <section class="missing-callout" id="missingCallout"><div><b id="missingTitle">Recherche des traductions manquantes…</b><p>L’analyse compare automatiquement les clés du jeu installé avec la traduction française. Elle repérera aussi les nouveaux textes ajoutés lors de futures mises à jour.</p></div><button id="showMissing">Afficher</button></section>
   <div class="layout">
@@ -283,7 +283,7 @@ REVIEW_HTML = r'''<!doctype html>
         <input class="file-input" id="importFile" type="file" accept="application/json,.json">
         <h2 class="action-heading">Partager le travail</h2>
         <button id="copyIssue">Copier le résumé pour GitHub</button>
-        <a class="button-link" href="https://github.com/BertrandVillien/KuloNiku-FR/issues/new?template=review.yml" target="_blank" rel="noreferrer">Ouvrir une issue GitHub ↗</a>
+        <a class="button-link" href="https://github.com/Le-Moulin/KuloNiku-FR/issues/new?template=review.yml" target="_blank" rel="noreferrer">Ouvrir une issue GitHub ↗</a>
         <div class="copy-status" id="copyStatus" role="status"></div>
       </div>
     </aside>

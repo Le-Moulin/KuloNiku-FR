@@ -92,7 +92,7 @@ de correction** dans **Options avancées**. Elles seront vérifiées, simulées 
 temporairement pour un contrôle direct en jeu.
 
 Utilisez le formulaire GitHub
-[« Proposer une correction française »](https://github.com/BertrandVillien/KuloNiku-FR/issues/new?template=translation.yml).
+[« Proposer une correction française »](https://github.com/Le-Moulin/KuloNiku-FR/issues/new?template=translation.yml).
 Aucune
 connaissance de Git n’est nécessaire. Indiquez le contexte et, si possible, une
 capture limitée à l’écran concerné.

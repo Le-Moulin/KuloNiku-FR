@@ -161,7 +161,7 @@ private func runLauncherSelfTest() -> Int32 {
 }
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    private let repositoryURL = URL(string: "https://github.com/BertrandVillien/KuloNiku-FR")!
+    private let repositoryURL = URL(string: "https://github.com/Le-Moulin/KuloNiku-FR")!
     private var window: NSWindow!
     private var gamePathField: NSTextField!
     private var logView: NSTextView!
@@ -552,7 +552,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func showAbout() {
         let credits = NSMutableAttributedString(
-            string: "Patch français communautaire non officiel.\n\nAucun fichier complet du jeu n’est distribué.\ngithub.com/BertrandVillien/KuloNiku-FR"
+            string: "Patch français communautaire non officiel.\n\nAucun fichier complet du jeu n’est distribué.\ngithub.com/Le-Moulin/KuloNiku-FR"
         )
         credits.addAttribute(
             .foregroundColor,
@@ -1061,7 +1061,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     ) {
         latestReleaseURL = nil
         appUpdateRow.isHidden = true
-        guard let apiURL = URL(string: "https://api.github.com/repos/BertrandVillien/KuloNiku-FR/releases?per_page=10") else { return }
+        guard let apiURL = URL(string: "https://api.github.com/repos/Le-Moulin/KuloNiku-FR/releases?per_page=10") else { return }
         var request = URLRequest(url: apiURL)
         request.setValue("KuloNiku-FR/\(currentVersion)", forHTTPHeaderField: "User-Agent")
         request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")

@@ -7,7 +7,7 @@ de ne jamais publier les fichiers du jeu.
 ## Proposer une correction sans programmer
 
 Le plus simple est d’utiliser le formulaire
-[Proposer une correction française](https://github.com/BertrandVillien/KuloNiku-FR/issues/new?template=translation.yml).
+[Proposer une correction française](https://github.com/Le-Moulin/KuloNiku-FR/issues/new?template=translation.yml).
 
 Indiquez si possible :
 
@@ -18,7 +18,7 @@ Indiquez si possible :
 
 La clé technique est facultative. Pour un souci avec l’application, utilisez
 plutôt le formulaire
-[Signaler un problème d’installation](https://github.com/BertrandVillien/KuloNiku-FR/issues/new?template=installation.yml).
+[Signaler un problème d’installation](https://github.com/Le-Moulin/KuloNiku-FR/issues/new?template=installation.yml).
 
 ## Proposer une modification avec Git
 
@@ -55,7 +55,7 @@ vue en liste et prépare le résumé à joindre à une issue GitHub.
 [Suivre le tutoriel et créer votre espace de relecture](docs/REVIEW_WORKSPACE.md)
 
 Une fois le travail exporté, utilisez le formulaire
-[Transmettre une relecture préparée](https://github.com/BertrandVillien/KuloNiku-FR/issues/new?template=review.yml).
+[Transmettre une relecture préparée](https://github.com/Le-Moulin/KuloNiku-FR/issues/new?template=review.yml).
 
 Ne publiez jamais l’espace HTML généré : il contient les textes sources du jeu.
 

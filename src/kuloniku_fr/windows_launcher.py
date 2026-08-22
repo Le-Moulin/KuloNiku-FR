@@ -19,8 +19,8 @@ from . import __version__
 from .installation import user_data_dir
 
 
-REPOSITORY_URL = "https://github.com/BertrandVillien/KuloNiku-FR"
-RELEASES_API_URL = "https://api.github.com/repos/BertrandVillien/KuloNiku-FR/releases?per_page=10"
+REPOSITORY_URL = "https://github.com/Le-Moulin/KuloNiku-FR"
+RELEASES_API_URL = "https://api.github.com/repos/Le-Moulin/KuloNiku-FR/releases?per_page=10"
 STEAM_APP_ID = "3357960"
 TRANSLATION_PACKAGE_FILES = {
     "fr.csv",
