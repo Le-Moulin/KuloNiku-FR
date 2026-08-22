@@ -87,11 +87,11 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: KuloNiku-FR-engine-macOS-Apple-Silicon
           path: build/engines/arm64
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: KuloNiku-FR-engine-macOS-Intel
           path: build/engines/x86_64
@@ -186,7 +186,7 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: artifacts
       - shell: bash
