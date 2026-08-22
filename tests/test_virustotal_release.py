@@ -21,10 +21,24 @@ def response(status: int, payload: object, **headers: str):
 
 
 def file_report(*, malicious: int = 0, suspicious: int = 0):
+    analysis_results = {}
+    if malicious:
+        analysis_results["ExampleAV"] = {
+            "category": "malicious",
+            "engine_name": "Example AV",
+            "result": "Generic.Malware",
+        }
+    if suspicious:
+        analysis_results["CautiousAV"] = {
+            "category": "suspicious",
+            "engine_name": "Cautious AV",
+            "result": "Heuristic.Suspicious",
+        }
     return {
         "data": {
             "attributes": {
                 "last_analysis_date": 1_700_000_000,
+                "last_analysis_results": analysis_results,
                 "last_analysis_stats": {
                     "harmless": 3,
                     "undetected": 67,
@@ -214,12 +228,15 @@ def test_report_is_factual_warns_and_is_replaced_idempotently():
         "b" * 64,
         file_report(malicious=1)["data"]["attributes"]["last_analysis_stats"],
         1_700_000_000,
+        (("Example AV", "Generic.Malware"),),
     )
     report = virustotal.render_report([clean, flagged])
 
-    assert "Revue humaine recommandée" in report
-    assert "certification ni une garantie" in report
-    assert "1 | 0 | 70 | 2 | 2" in report
+    assert "[Windows]" in report
+    assert "⚠️ 1/75" in report
+    assert "pas une garantie de sécurité" in report
+    assert "SHA-256" not in report
+    assert "| Paquet |" not in report
     first_body = virustotal.replace_report_section("Notes initiales\n", report)
     replacement = virustotal.render_report([clean])
     second_body = virustotal.replace_report_section(first_body, replacement)
@@ -228,3 +245,16 @@ def test_report_is_factual_warns_and_is_replaced_idempotently():
     assert second_body.count(virustotal.REPORT_START) == 1
     assert "Windows.zip" not in second_body
     assert virustotal.replace_report_section(second_body, replacement) == second_body
+
+
+def test_flagged_engines_are_kept_for_maintainer_feedback(tmp_path: Path):
+    asset = tmp_path / "Windows.zip"
+    asset.write_bytes(b"known")
+    transport = QueuedTransport([response(200, file_report(malicious=1, suspicious=1))])
+
+    result = make_client(transport).scan(asset)
+
+    assert result.detections == (
+        ("Cautious AV", "Heuristic.Suspicious"),
+        ("Example AV", "Generic.Malware"),
+    )

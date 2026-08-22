@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import argparse
 from dataclasses import dataclass
-from datetime import datetime, timezone
 import hashlib
 import json
 import os
@@ -50,6 +49,7 @@ class ScanResult:
     sha256: str
     stats: Mapping[str, int]
     analysis_date: int | None
+    detections: tuple[tuple[str, str], ...] = ()
 
     @property
     def malicious(self) -> int:
@@ -74,6 +74,14 @@ class ScanResult:
     @property
     def needs_review(self) -> bool:
         return self.malicious > 0 or self.suspicious > 0
+
+    @property
+    def detection_count(self) -> int:
+        return self.malicious + self.suspicious
+
+    @property
+    def total_results(self) -> int:
+        return sum(self.stats.values())
 
 
 Transport = Callable[[str, str, Mapping[str, str], bytes | None], HttpResponse]
@@ -258,7 +266,22 @@ class VirusTotalClient:
         analysis_date = attributes.get("last_analysis_date")
         if analysis_date is not None and not isinstance(analysis_date, int):
             raise VirusTotalError("Date d'analyse VirusTotal invalide.")
-        return ScanResult("", sha256, raw_stats, analysis_date)
+        raw_results = attributes.get("last_analysis_results", {})
+        if not isinstance(raw_results, dict):
+            raise VirusTotalError("Détails VirusTotal invalides.")
+        detections: list[tuple[str, str]] = []
+        for fallback_name, details in raw_results.items():
+            if not isinstance(fallback_name, str) or not isinstance(details, dict):
+                raise VirusTotalError("Détail de moteur VirusTotal invalide.")
+            if details.get("category") not in {"malicious", "suspicious"}:
+                continue
+            engine = details.get("engine_name", fallback_name)
+            result = details.get("result", details["category"])
+            if not isinstance(engine, str) or not isinstance(result, str):
+                raise VirusTotalError("Verdict de moteur VirusTotal invalide.")
+            detections.append((engine, result))
+        detections.sort(key=lambda item: item[0].casefold())
+        return ScanResult("", sha256, raw_stats, analysis_date, tuple(detections))
 
     def _multipart(self, path: Path) -> tuple[bytes, str]:
         boundary = f"----KuloNikuFR{uuid.uuid4().hex}"
@@ -327,49 +350,43 @@ class VirusTotalClient:
             raise VirusTotalError(
                 f"Rapport VirusTotal introuvable après l'analyse de {path.name}."
             )
-        return ScanResult(path.name, digest, existing.stats, existing.analysis_date)
+        return ScanResult(
+            path.name,
+            digest,
+            existing.stats,
+            existing.analysis_date,
+            existing.detections,
+        )
+
+
+def platform_name(filename: str) -> str:
+    if "Windows" in filename:
+        return "Windows"
+    if "macOS" in filename:
+        return "macOS"
+    if "Steam-Deck" in filename:
+        return "Steam Deck"
+    return filename
 
 
 def render_report(results: Sequence[ScanResult]) -> str:
     if not results:
         raise VirusTotalError("Aucun résultat VirusTotal à publier.")
-    warning_results = [result for result in results if result.needs_review]
     lines = [
         REPORT_START,
         "## Analyse antivirus VirusTotal",
         "",
-        "Les paquets publics de cette release ont été soumis automatiquement à "
-        "VirusTotal. Ces résultats sont des signaux de plusieurs moteurs et ne "
-        "constituent pas une certification ni une garantie d'absence de risque.",
-        "",
     ]
-    if warning_results:
-        names = ", ".join(f"`{result.name}`" for result in warning_results)
-        lines.extend(
-            [
-                f"**⚠️ Revue humaine recommandée pour : {names}.**",
-                "",
-            ]
-        )
-    lines.extend(
-        [
-            "| Paquet | SHA-256 et rapport | Malveillants | Suspects | Sans détection | Non pris en charge | Erreurs/expirations |",
-            "| --- | --- | ---: | ---: | ---: | ---: | ---: |",
-        ]
-    )
+    summaries = []
     for result in results:
         report_url = f"{PUBLIC_REPORT_BASE}/{result.sha256}/detection"
-        lines.append(
-            f"| `{result.name}` | [`{result.sha256}`]({report_url}) | "
-            f"{result.malicious} | {result.suspicious} | {result.without_detection} | "
-            f"{result.unsupported} | {result.incomplete} |"
+        status = "⚠️" if result.needs_review else "✅"
+        summaries.append(
+            f"[{platform_name(result.name)}]({report_url}) {status} "
+            f"{result.detection_count}/{result.total_results}"
         )
-    dates = [result.analysis_date for result in results if result.analysis_date is not None]
-    if dates:
-        latest = datetime.fromtimestamp(max(dates), timezone.utc).strftime(
-            "%Y-%m-%d %H:%M UTC"
-        )
-        lines.extend(["", f"Dernière analyse connue : **{latest}**."])
+    lines.append(" · ".join(summaries))
+    lines.extend(["", "Résultats indicatifs, pas une garantie de sécurité."])
     lines.extend([REPORT_END, ""])
     return "\n".join(lines)
 
@@ -395,16 +412,29 @@ def replace_report_section(body: str, report: str) -> str:
 def write_action_feedback(results: Sequence[ScanResult], report: str) -> None:
     for result in results:
         if result.needs_review:
+            details = "; ".join(
+                f"{engine}: {verdict}" for engine, verdict in result.detections
+            ) or "moteurs non détaillés par l'API"
             print(
                 f"::warning title=Détection VirusTotal::{result.name} : "
                 f"{result.malicious} malveillant(s), {result.suspicious} suspect(s). "
-                "Une revue humaine est nécessaire."
+                f"{details}. Une revue humaine est nécessaire."
             )
     summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
     if summary_path:
         try:
             with Path(summary_path).open("a", encoding="utf-8") as stream:
                 stream.write(report.replace(REPORT_START, "").replace(REPORT_END, ""))
+                for result in results:
+                    if result.needs_review and result.detections:
+                        stream.write(f"\n**Détails {platform_name(result.name)} :** ")
+                        stream.write(
+                            "; ".join(
+                                f"{engine}: `{verdict}`"
+                                for engine, verdict in result.detections
+                            )
+                        )
+                        stream.write("\n")
         except OSError as error:
             raise VirusTotalError(
                 f"Impossible d'écrire le résumé GitHub Actions : {error}"
