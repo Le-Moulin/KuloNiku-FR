@@ -126,6 +126,27 @@ def test_known_hash_reuses_the_existing_report_without_upload(tmp_path: Path):
     assert [call[0] for call in transport.calls] == ["GET"]
 
 
+def test_known_hash_can_request_a_fresh_analysis(tmp_path: Path):
+    asset = tmp_path / "Windows.zip"
+    asset.write_bytes(b"already known")
+    transport = QueuedTransport(
+        [
+            response(200, file_report(malicious=1)),
+            response(200, {"data": {"id": "fresh-analysis"}}),
+            response(200, {"data": {"attributes": {"status": "completed"}}}),
+            response(200, file_report()),
+        ]
+    )
+
+    result = make_client(transport).scan(asset, reanalyze=True)
+
+    assert result.malicious == 0
+    assert transport.calls[1][0:2] == (
+        "POST",
+        f"{virustotal.API_BASE}/files/{result.sha256}/analyse",
+    )
+
+
 def test_new_small_file_is_uploaded_and_polled_until_completed(tmp_path: Path):
     asset = tmp_path / "Windows.zip"
     asset.write_bytes(b"new file")

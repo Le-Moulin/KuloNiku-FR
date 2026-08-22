@@ -323,6 +323,16 @@ class VirusTotalClient:
             raise VirusTotalError("Identifiant d'analyse VirusTotal invalide.")
         return analysis_id
 
+    def _reanalyze(self, sha256: str) -> str:
+        response = self._request("POST", f"{API_BASE}/files/{sha256}/analyse")
+        try:
+            analysis_id = response.payload["data"]["id"]  # type: ignore[index]
+        except (KeyError, TypeError) as error:
+            raise VirusTotalError("Identifiant de réanalyse VirusTotal absent.") from error
+        if not isinstance(analysis_id, str) or not analysis_id:
+            raise VirusTotalError("Identifiant de réanalyse VirusTotal invalide.")
+        return analysis_id
+
     def _wait_for_analysis(self, analysis_id: str) -> None:
         deadline = self.clock() + self.poll_timeout
         while True:
@@ -339,11 +349,15 @@ class VirusTotalClient:
                 raise VirusTotalError("Délai d'analyse VirusTotal dépassé.")
             self.sleep(self.min_request_interval)
 
-    def scan(self, path: Path) -> ScanResult:
+    def scan(self, path: Path, *, reanalyze: bool = False) -> ScanResult:
         digest = sha256_file(path)
         existing = self._file_report(digest)
         if existing is None:
             analysis_id = self._upload(path)
+            self._wait_for_analysis(analysis_id)
+            existing = self._file_report(digest)
+        elif reanalyze:
+            analysis_id = self._reanalyze(digest)
             self._wait_for_analysis(analysis_id)
             existing = self._file_report(digest)
         if existing is None:
@@ -450,7 +464,7 @@ def command_scan(arguments: argparse.Namespace) -> None:
     validate_asset_names(arguments.assets)
     api_key = os.environ.get("VT_API_KEY", "")
     client = VirusTotalClient(api_key)
-    results = [client.scan(path) for path in arguments.assets]
+    results = [client.scan(path, reanalyze=arguments.reanalyze) for path in arguments.assets]
     report = render_report(results)
     arguments.output.write_text(report, encoding="utf-8")
     write_action_feedback(results, report)
@@ -476,6 +490,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     scan = subparsers.add_parser("scan", help="analyser les paquets")
     scan.add_argument("--output", required=True, type=Path)
+    scan.add_argument(
+        "--reanalyze",
+        action="store_true",
+        help="forcer une nouvelle analyse des SHA-256 déjà connus",
+    )
     scan.add_argument("assets", nargs="+", type=Path)
     scan.set_defaults(handler=command_scan)
 
