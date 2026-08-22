@@ -1,0 +1,100 @@
+name: Analyse VirusTotal des releases
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        description: Tag de la release à analyser
+        required: true
+        type: string
+    secrets:
+      VT_API_KEY:
+        required: true
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Tag de la release existante à analyser
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: virustotal-release-${{ inputs.tag || github.event.release.tag_name }}
+  cancel-in-progress: false
+
+jobs:
+  scan-release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_TAG: ${{ inputs.tag || github.event.release.tag_name }}
+      VT_API_KEY: ${{ secrets.VT_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Vérifier la configuration
+        shell: bash
+        run: |
+          if [[ -z "$VT_API_KEY" ]]; then
+            echo "Le secret GitHub VT_API_KEY est absent." >&2
+            exit 1
+          fi
+          if [[ -z "$RELEASE_TAG" ]]; then
+            echo "Le tag de release est absent." >&2
+            exit 1
+          fi
+
+      - name: Télécharger les paquets publics exacts
+        shell: bash
+        run: |
+          mkdir -p release-assets build
+          for asset in \
+            KuloNiku-FR-Windows-x64.zip \
+            KuloNiku-FR-macOS-Universal.dmg \
+            KuloNiku-FR-Steam-Deck-x86_64.AppImage \
+            SHA256SUMS.txt
+          do
+            gh release download "$RELEASE_TAG" \
+              --dir release-assets \
+              --pattern "$asset"
+          done
+
+      - name: Vérifier les empreintes publiées
+        run: |
+          python packaging/virustotal_release.py verify \
+            release-assets/SHA256SUMS.txt \
+            release-assets/KuloNiku-FR-Windows-x64.zip \
+            release-assets/KuloNiku-FR-macOS-Universal.dmg \
+            release-assets/KuloNiku-FR-Steam-Deck-x86_64.AppImage
+
+      - name: Analyser avec VirusTotal
+        run: |
+          python packaging/virustotal_release.py scan \
+            --output build/virustotal-report.md \
+            release-assets/KuloNiku-FR-Windows-x64.zip \
+            release-assets/KuloNiku-FR-macOS-Universal.dmg \
+            release-assets/KuloNiku-FR-Steam-Deck-x86_64.AppImage
+
+      - name: Préparer les notes de release
+        shell: bash
+        run: |
+          gh release view "$RELEASE_TAG" --json body --jq .body \
+            > build/current-release-notes.md
+          python packaging/virustotal_release.py merge \
+            --body build/current-release-notes.md \
+            --report build/virustotal-report.md \
+            --output build/updated-release-notes.md
+
+      - name: Publier les rapports dans la release
+        run: |
+          gh release edit "$RELEASE_TAG" \
+            --notes-file build/updated-release-notes.md

@@ -23,3 +23,21 @@ l’empreinte du fichier, sans joindre de données personnelles.
 - les remplacements sont atomiques et restaurables ;
 - une mise à jour distante ne doit jamais être exécutée automatiquement ;
 - les paquets officiels proviennent uniquement des releases GitHub du projet.
+
+## Analyses antivirus des releases
+
+Après leur publication, les paquets Windows, macOS et Steam Deck sont soumis
+automatiquement au service public VirusTotal. Les liens vers les rapports et les
+empreintes SHA-256 correspondantes sont ajoutés aux notes de chaque release.
+
+Ces analyses sont informatives : elles agrègent les résultats de plusieurs
+moteurs, mais ne constituent ni une certification ni une garantie d’absence de
+risque. Les fichiers soumis au service public peuvent être partagés par
+VirusTotal avec ses partenaires de sécurité. Ils sont déjà distribués
+publiquement dans les releases de ce projet.
+
+Une détection, même isolée, doit être examinée humainement avant toute
+conclusion. Les exécutables construits avec PyInstaller peuvent notamment
+produire des faux positifs. Pour les signaler, utilisez le formulaire public de
+problème d’installation indiqué plus haut en précisant la release, le paquet,
+son SHA-256 et le lien du rapport VirusTotal.

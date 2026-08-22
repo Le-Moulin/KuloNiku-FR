@@ -219,3 +219,13 @@ jobs:
             ./SHA256SUMS.txt ./update-manifest.json
         env:
           GH_TOKEN: ${{ github.token }}
+
+  virustotal:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: release
+    permissions:
+      contents: write
+    uses: ./.github/workflows/virustotal-release.yml
+    with:
+      tag: ${{ github.ref_name }}
+    secrets: inherit
