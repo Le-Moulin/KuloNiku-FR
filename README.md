@@ -117,7 +117,7 @@ faire un don libre à l’association Le Moulin Computer Club :
 
 
 [![Ko-fi](https://shields.io/badge/Ko_fi-Soutenir_sur_Ko_fi-FF5E5B?style=for-the-badge&logo=kofi&logoColor=white
-)](https://ko-fi.com)
+)](https://ko-fi.com/Q8D325RXIE)
 
 [![Ko-fi](https://shields.io/badge/HelloAsso-Don_à_l'association-0066cc?style=for-the-badge&logo=handshake&logoColor=white)](https://moulin.club/don)
 
