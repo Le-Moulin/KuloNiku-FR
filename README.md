@@ -111,7 +111,10 @@ la qualité de la traduction et les informations techniques.
 KuloNiku FR reste entièrement gratuit. Si vous souhaitez soutenir le temps
 consacré à ce projet et les activités de mon club informatique, vous pouvez
 faire un don libre à l’association Le Moulin Computer Club :
-[soutenir mon travail](https://www.helloasso.com/associations/le-moulin-computer-club/formulaires/3).
+[soutenir mon travail](https://www.helloasso.com/associations/le-moulin-computer-club/formulaires/3) 
+ou :
+
+<a href='https://ko-fi.com/Q8D325RXIE' target='_blank'><img height='36' style='border:0px;height:36px;' src='https://storage.ko-fi.com/cdn/kofi6.png?v=6' border='0' alt='Buy Me a Coffee at ko-fi.com' /></a>
 
 ---
 
