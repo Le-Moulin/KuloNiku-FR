@@ -56,7 +56,7 @@ formulation neutre reste naturelle; sinon marquer la ligne `provisional`.
   et non un calque mot à mot.
 - Préserver la voix du personnage visible dans le lot : registre, énergie,
   hésitations, humour, arrogance, tendresse et jeux de mots.
-- Comparer systématiquement les huit langues du fichier source. L’indonésien
+- Comparer systématiquement toutes les langues du fichier source, y compris le japonais et le français natif lorsqu’ils existent. L’indonésien
   éclaire souvent les plats et la culture; l’espagnol, l’allemand et le portugais
   aident à lever les ambiguïtés; le chinois et le thaï peuvent confirmer le sens.
 - En cas de divergence, utiliser l'anglais comme référence prioritaire pour les

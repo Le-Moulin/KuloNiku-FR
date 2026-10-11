@@ -8,6 +8,7 @@ import re
 
 from .batching import macro_group, semantic_group
 from .i2_asset import LanguageSource
+from .localization import source_limit
 from .translation import lint_translation, source_character_limit
 
 
@@ -112,7 +113,7 @@ def merge_review_test_proposals(
         term = by_key.get(key)
         if term is None:
             raise ValueError(f"Clé de proposition absente du jeu : {key}")
-        warnings = lint_translation(term, french)
+        warnings = lint_translation(term, french, source=source)
         token_warning = next((warning for warning in warnings if warning.kind == "tokens"), None)
         if token_warning:
             raise ValueError(f"{key} : {token_warning.message}")
@@ -133,7 +134,7 @@ def ensure_unpatched_source(source: LanguageSource) -> None:
     )
     if not selection:
         return
-    for code in ("de", "fr"):
+    for code in ("de",):
         if code in codes:
             index = codes.index(code)
             if index < len(selection.translations) and selection.translations[index] == "Français":
@@ -175,7 +176,7 @@ def build_review_payload(
             "code": language.code,
             "name": LANGUAGE_LABELS.get(language.code, language.name or language.code),
         }
-        for language in source.languages
+        for language in source.languages if language.code
     ]
     rows = []
     for index, term in enumerate(source.terms):
@@ -189,7 +190,7 @@ def build_review_payload(
             language.code: term.translations[position]
             if position < len(term.translations)
             else ""
-            for position, language in enumerate(source.languages)
+            for position, language in enumerate(source.languages) if language.code
         }
         if not current.get("fr") and not any(values.values()):
             continue
@@ -201,7 +202,7 @@ def build_review_payload(
                 "category": key_category(term.key),
                 "group": group,
                 "macro": macro_group(group),
-                "max_source_chars": source_character_limit(term),
+                "max_source_chars": source_limit(source, term),
                 "fr": current.get("fr", ""),
                 "missing_fr": not current.get("fr", "").strip(),
                 "translation_status": current.get("status", ""),

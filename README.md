@@ -57,7 +57,7 @@ visuellement en jeu.
 ## Participer
 
 Pas besoin de savoir programmer. L’**espace de relecture local** affiche les
-huit langues du jeu, les clés voisines et le français actuel. Il repère aussi
+langues disponibles du jeu, les clés voisines et le français actuel. Il repère aussi
 automatiquement les traductions manquantes après une mise à jour du jeu.
 
 Dans l’application Windows ou macOS, sélectionnez le jeu, ouvrez **Options avancées** puis

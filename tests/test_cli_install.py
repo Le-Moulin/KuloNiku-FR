@@ -218,3 +218,130 @@ def test_status_detects_a_real_steam_replacement_from_the_asset_hash(monkeypatch
 
     assert report["state"] == "game_updated"
     assert report["translation_state"] == "not_installed"
+
+
+def test_native_french_does_not_trigger_old_patch_update(monkeypatch, tmp_path: Path, capsys):
+    path = tmp_path / "resources.assets"
+    path.write_bytes(b"new-steam-version")
+    native = Source(french=False)
+    native.languages.append(Language("fr"))
+    native.terms[0].translations.append("English")
+    old_manifest = {"patched_sha256": "old-patched", "original_sha256": "old-source"}
+    monkeypatch.setattr(cli, "detect_asset", lambda _: GameAsset(path, "windows", "full"))
+    monkeypatch.setattr(cli, "load_source", lambda _: (None, None, native))
+    monkeypatch.setattr(cli, "latest_backup_for", lambda _: (tmp_path / "old-backup", old_manifest))
+    monkeypatch.setattr(cli, "load_resolved_french", lambda *a, **kw: ({"SETTINGS_LANGUAGESELECTION": "Français"}, 0, 0))
+    monkeypatch.setattr(cli, "backup_asset", lambda *a, **kw: (_ for _ in ()).throw(AssertionError("simulation wrote a backup")))
+    assert cli.command_install(Namespace(game=str(tmp_path), translations=str(tmp_path / "fr.csv"), apply=False)) == 0
+    assert path.read_bytes() == b"new-steam-version"
+    assert "de, fr" in capsys.readouterr().out
+
+
+def test_new_steam_patch_creates_its_own_restorable_backup(monkeypatch, tmp_path: Path):
+    from kuloniku_fr import installation
+    path = tmp_path / "KuloNiku_Data" / "resources.assets"
+    path.parent.mkdir()
+    path.write_bytes(b"new-steam-version")
+    data = tmp_path / "user-data"
+    monkeypatch.setattr(installation, "user_data_dir", lambda: data)
+    monkeypatch.setattr(cli, "detect_asset", lambda _: GameAsset(path, "windows", "full"))
+
+    def load(p):
+        native = Source(french=Path(p).read_bytes() == b"patched-new")
+        native.languages.append(Language("fr"))
+        native.terms[0].translations.append("Français" if Path(p).read_bytes() == b"patched-new" else "English")
+        return None, None, native
+
+    monkeypatch.setattr(cli, "load_source", load)
+    monkeypatch.setattr(cli, "load_resolved_french", lambda *a, **kw: ({"SETTINGS_LANGUAGESELECTION": "Français"}, 0, 0))
+    monkeypatch.setattr(cli, "command_build", lambda args: Path(args.output).write_bytes(b"patched-new"))
+    monkeypatch.setattr(cli, "translation_bundle_hash", lambda *a, **kw: "bundle")
+    monkeypatch.setattr(cli, "resign_macos", lambda _: None)
+    args = Namespace(game=str(tmp_path), translations=str(tmp_path / "fr.csv"), apply=True)
+    cli.command_install(args)
+    backup, manifest = installation.latest_backup_for(path)
+    assert backup.read_bytes() == b"new-steam-version"
+    assert manifest["pending"] is False
+    assert manifest["target_languages"] == ["de", "fr"]
+    cli.command_restore(args)
+    assert path.read_bytes() == b"new-steam-version"
+
+
+def test_failed_install_does_not_activate_backup(monkeypatch, tmp_path: Path):
+    import pytest
+    from kuloniku_fr import installation
+    path = tmp_path / "resources.assets"
+    path.write_bytes(b"source")
+    monkeypatch.setattr(installation, "user_data_dir", lambda: tmp_path / "data")
+    monkeypatch.setattr(cli, "detect_asset", lambda _: GameAsset(path, "windows", "full"))
+    monkeypatch.setattr(cli, "load_source", lambda p: (None, None, Source(french=Path(p).read_bytes() == b"candidate")))
+    monkeypatch.setattr(cli, "load_resolved_french", lambda *a, **kw: ({"SETTINGS_LANGUAGESELECTION": "Français"}, 0, 0))
+    monkeypatch.setattr(cli, "command_build", lambda a: Path(a.output).write_bytes(b"candidate"))
+    calls = []
+
+    def resign(_):
+        calls.append(1)
+        if len(calls) == 1:
+            raise RuntimeError("signature failed")
+
+    monkeypatch.setattr(cli, "resign_macos", resign)
+    with pytest.raises(RuntimeError, match="signature failed"):
+        cli.command_install(Namespace(game=str(tmp_path), translations=str(tmp_path / "fr.csv"), apply=True))
+    assert path.read_bytes() == b"source"
+    with pytest.raises(FileNotFoundError):
+        installation.latest_backup_for(path)
+
+
+def test_restore_cannot_downgrade_a_steam_update(monkeypatch, tmp_path: Path):
+    import pytest
+    path = tmp_path / "resources.assets"
+    path.write_bytes(b"new-steam")
+    monkeypatch.setattr(cli, "detect_asset", lambda _: GameAsset(path, "windows", "full"))
+    monkeypatch.setattr(cli, "latest_backup_for", lambda _: (tmp_path / "old", {"original_sha256": "old", "patched_sha256": "old-patch"}))
+    with pytest.raises(RuntimeError, match="ancienne version"):
+        cli.command_restore(Namespace(game=str(tmp_path), apply=True))
+    assert path.read_bytes() == b"new-steam"
+
+
+def test_source_changed_during_build_is_not_overwritten(monkeypatch, tmp_path: Path):
+    import pytest
+    from kuloniku_fr import installation
+    path = tmp_path / "resources.assets"
+    path.write_bytes(b"source")
+    monkeypatch.setattr(installation, "user_data_dir", lambda: tmp_path / "data")
+    monkeypatch.setattr(cli, "detect_asset", lambda _: GameAsset(path, "windows", "full"))
+    monkeypatch.setattr(cli, "load_source", lambda p: (None, None, Source(french=False)))
+    monkeypatch.setattr(cli, "load_resolved_french", lambda *a, **kw: ({"SETTINGS_LANGUAGESELECTION": "Français"}, 0, 0))
+
+    def build(args):
+        Path(args.output).write_bytes(b"candidate")
+        path.write_bytes(b"concurrent-steam-update")
+
+    monkeypatch.setattr(cli, "command_build", build)
+    with pytest.raises(RuntimeError, match="pendant la préparation"):
+        cli.command_install(Namespace(game=str(tmp_path), translations=str(tmp_path / "fr.csv"), apply=True))
+    assert path.read_bytes() == b"concurrent-steam-update"
+    with pytest.raises(FileNotFoundError):
+        installation.latest_backup_for(path)
+
+
+def test_restore_failure_keeps_the_previous_patch(monkeypatch, tmp_path: Path):
+    import pytest
+    path = tmp_path / "resources.assets"
+    path.write_bytes(b"patched")
+    backup = tmp_path / "backup"
+    backup.write_bytes(b"original")
+    manifest = {"original_sha256": cli.sha256(backup), "patched_sha256": cli.sha256(path)}
+    monkeypatch.setattr(cli, "detect_asset", lambda _: GameAsset(path, "windows", "full"))
+    monkeypatch.setattr(cli, "latest_backup_for", lambda _: (backup, manifest))
+    calls = []
+
+    def resign(_):
+        calls.append(1)
+        if len(calls) == 1:
+            raise RuntimeError("signature failed")
+
+    monkeypatch.setattr(cli, "resign_macos", resign)
+    with pytest.raises(RuntimeError, match="signature failed"):
+        cli.command_restore(Namespace(game=str(tmp_path), apply=True))
+    assert path.read_bytes() == b"patched"

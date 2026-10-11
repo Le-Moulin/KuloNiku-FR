@@ -1,5 +1,12 @@
 # Sélection de la langue française
 
+Depuis `1.4.0`, lorsque le jeu contient déjà une colonne française, le patch
+écrit le même texte final dans cette colonne et dans l'emplacement allemand.
+L'emplacement allemand reste nécessaire tant que le menu n'expose pas le français
+natif. Les anciennes versions conservent leur fonctionnement sans ajout de langue.
+Restaurer remet exactement le fichier sauvegardé avant le patch, y compris les
+textes français fournis par le jeu lorsqu'ils existent.
+
 ## Fonctionnement actuel
 
 L’installateur n’impose pas automatiquement la langue. Après installation,

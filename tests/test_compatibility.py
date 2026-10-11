@@ -1,5 +1,5 @@
 from kuloniku_fr.cli import reference_hash, resolve_french_for_source
-from kuloniku_fr.i2_asset import LanguageSource, Pointer, Term
+from kuloniku_fr.i2_asset import Language, LanguageSource, Pointer, Term
 
 
 def source_with(*terms: Term) -> LanguageSource:
@@ -15,7 +15,7 @@ def source_with(*terms: Term) -> LanguageSource:
         case_insensitive_terms=0,
         missing_translation_mode=0,
         app_name_term="",
-        languages=[],
+        languages=[Language("English", "en", 0), Language("Indonesian", "id", 0)],
         ignore_device_language=0,
         allow_unloading_languages=0,
         google_web_service_url="",

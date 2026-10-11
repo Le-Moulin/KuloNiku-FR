@@ -105,6 +105,50 @@ private func isPrereleaseVersion(_ version: String) -> Bool {
     comparableVersion(version)[3] < 3
 }
 
+private func newerTranslationPackage(
+    in manifest: UpdateManifest?,
+    edition: String,
+    activeVersion: String,
+    activeHash: String
+) -> TranslationPackage? {
+    guard let manifest,
+          let package = manifest.translationPackage,
+          isVersion(package.version, newerThan: activeVersion),
+          let remoteHash = manifest.translationBundles[edition],
+          package.bundles[edition] == remoteHash,
+          remoteHash != activeHash
+    else { return nil }
+    return package
+}
+
+private func runUpdatePolicySelfTest() -> Int32 {
+    func manifest(_ version: String, hash: String = "remote") -> UpdateManifest {
+        UpdateManifest(version: version, translationBundles: ["full": hash],
+            translationPackage: TranslationPackage(version: version, asset: "translations.zip",
+                sha256: "archive", minimumPatcherVersion: "1.4.0", bundles: ["full": hash]))
+    }
+    let cases: [(UpdateManifest?, String, String, Bool)] = [
+        (manifest("1.3.1"), "1.4.0", "local", false),
+        (manifest("1.4.0"), "1.4.0", "local", false),
+        (manifest("1.4.1"), "1.4.0", "local", true),
+        (manifest("1.4.1", hash: "local"), "1.4.0", "local", false),
+        (manifest("1.4.1"), "1.5.0", "local", false),
+        (manifest("1.5.0"), "1.5.0", "local", false),
+        (manifest("1.4.1-beta.1"), "1.4.1", "local", false),
+        (nil, "1.4.0", "local", false),
+    ]
+    for (index, test) in cases.enumerated() {
+        let accepted = newerTranslationPackage(in: test.0, edition: "full",
+            activeVersion: test.1, activeHash: test.2) != nil
+        guard accepted == test.3 else {
+            fputs("Échec du scénario de mise à jour \(index + 1).\n", stderr)
+            return 1
+        }
+    }
+    print("8 scénarios de mise à jour vérifiés.")
+    return 0
+}
+
 private var bundledPatcherExecutable: String {
     #if arch(arm64)
     return "KuloNiku-FR-arm64"
@@ -186,6 +230,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var selectedGameURL: URL?
     private var latestReleaseURL: URL?
     private var downloadedTranslationsURL: URL?
+    private var downloadedTranslationsVersion: String?
     private var translationDownloadInProgress = false
     private var installerUpdateRequired = false
     private var simulationSucceeded = false
@@ -830,16 +875,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     title: "Installation propre et à jour",
                     message: "La traduction française installée correspond exactement à cette version."
                 )
-            } else if report.state == "patched_unknown" {
-                self.setBusy(false, details: result.output)
-                self.installButton.isEnabled = false
-                self.installButton.isHidden = true
-                self.setStatus(
-                    symbol: "exclamationmark.triangle.fill",
-                    color: .systemOrange,
-                    title: "État du jeu à vérifier",
-                    message: "Le français est présent, mais le fichier diffère du dernier état connu. La mise à jour automatique reste désactivée par sécurité."
-                )
             } else {
                 let isUpdate = report.state == "patched"
                 self.validateInstall(
@@ -874,7 +909,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                         ? "Version récente, français disponible"
                         : (isUpdate ? "Mise à jour française disponible" : "Prêt à installer le français"),
                     message: unlistedVersion
-                        ? "Le patch reste installable. Quelques nouveautés pourront rester en anglais, en attendant leur traduction ou une contribution sur GitHub."
+                        ? "Cette version du jeu n’a pas encore été testée. Les textes sans français compatible resteront en anglais."
                         : (isUpdate
                             ? "Une traduction embarquée plus récente peut être appliquée sans restauration préalable."
                             : "Le jeu est compatible. Une sauvegarde vérifiée sera créée avant l’installation."),
@@ -1107,13 +1142,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 }
 
                 guard let edition,
-                      let bundledTranslationHash,
-                      let remoteHash = manifest.translationBundles[edition]
+                      let bundledTranslationHash
                 else { return }
 
-                let translationChanged = remoteHash != bundledTranslationHash
-                if translationChanged,
-                   let package = manifest.translationPackage,
+                if let package = newerTranslationPackage(
+                    in: manifest,
+                    edition: edition,
+                    activeVersion: self.downloadedTranslationsVersion ?? self.currentVersion,
+                    activeHash: bundledTranslationHash
+                ),
                    let expectedHash = package.bundles[edition] {
                     if isVersion(
                         package.minimumPatcherVersion,
@@ -1176,6 +1213,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             if FileManager.default.isReadableFile(atPath: cachedFrench.path) {
                 self.validateDownloadedTranslations(
                     cachedFrench,
+                    packageVersion: package.version,
                     expectedBundleHash: expectedBundleHash,
                     edition: edition,
                     releaseURL: releaseURL
@@ -1221,7 +1259,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                             userInfo: [NSLocalizedDescriptionKey: "Le paquet n’a pas pu être ouvert."]
                         )
                     }
-                    for name in ["fr.csv", "source-hashes.csv", "demo-overrides.csv", "known-sources.json"] {
+                    for name in ["fr.csv", "source-hashes.csv", "demo-overrides.csv", "known-sources.json", "full-overrides.csv", "native-approvals.csv"] {
                         guard fileManager.isReadableFile(atPath: extraction.appendingPathComponent(name).path) else {
                             throw NSError(
                                 domain: "KuloNikuFR",
@@ -1237,6 +1275,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     DispatchQueue.main.async {
                         self.validateDownloadedTranslations(
                             cacheDirectory.appendingPathComponent("fr.csv"),
+                            packageVersion: package.version,
                             expectedBundleHash: expectedBundleHash,
                             edition: edition,
                             releaseURL: releaseURL
@@ -1254,6 +1293,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func validateDownloadedTranslations(
         _ candidate: URL,
+        packageVersion: String,
         expectedBundleHash: String,
         edition: String,
         releaseURL: URL
@@ -1265,6 +1305,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         runPatcher(arguments: ["status", game.path, "--translations", candidate.path, "--json"]) { [weak self] result in
             guard let self else { return }
             guard result.status == 0,
+                  isVersion(packageVersion, newerThan: self.downloadedTranslationsVersion ?? self.currentVersion),
                   let data = result.output.data(using: .utf8),
                   let report = try? JSONDecoder().decode(InstallationStatus.self, from: data),
                   report.edition == edition,
@@ -1275,6 +1316,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
             self.translationDownloadInProgress = false
             self.downloadedTranslationsURL = candidate
+            self.downloadedTranslationsVersion = packageVersion
             self.appendLog("\nTraduction téléchargée et vérifiée. Elle est prête à être appliquée.")
             self.analyze()
         }
@@ -1414,7 +1456,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 }
 
-if CommandLine.arguments.contains("--self-test") {
+if CommandLine.arguments.contains("--self-test-updates") {
+    exit(runUpdatePolicySelfTest())
+} else if CommandLine.arguments.contains("--self-test") {
     exit(runLauncherSelfTest())
 } else {
     let application = NSApplication.shared

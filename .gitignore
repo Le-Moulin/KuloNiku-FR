@@ -18,6 +18,8 @@ package/
 *.spec
 work/
 outputs/
+/.qmd/index.sqlite*
+/.codebase-memory/
 docs/ROADMAP.md
 *.assets
 translations/batches/*.csv

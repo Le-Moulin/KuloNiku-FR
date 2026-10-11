@@ -30,7 +30,7 @@ install -m 644 packaging/icons/KuloNikuFR.svg \
   "$appdir/usr/share/icons/hicolor/scalable/apps/KuloNikuFR.svg"
 ln -s KuloNikuFR.svg "$appdir/.DirIcon"
 
-for name in fr.csv source-hashes.csv demo-overrides.csv known-sources.json; do
+for name in fr.csv source-hashes.csv demo-overrides.csv full-overrides.csv native-approvals.csv known-sources.json; do
   install -m 644 "translations/$name" "$appdir/usr/bin/resources/translations/$name"
 done
 install -m 644 LICENSE SECURITY.md THIRD_PARTY_NOTICES.md "$appdir/usr/bin/resources/"

@@ -21,6 +21,8 @@ def row(key: str, english: str) -> dict[str, str]:
         "chinese_traditional": english,
         "german": english,
         "portuguese": english,
+        "japanese": "",
+        "native_french": "",
     }
 
 

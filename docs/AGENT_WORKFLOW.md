@@ -36,6 +36,13 @@ provisoires, dépassements justifiés et doutes culinaires ou narratifs.
 
 ## Contrôle humain et automatique
 
+Pour une mise à jour, le lot contient également les anciennes références et le
+français précédent. L'extraction utilise les codes de langue, comprend le
+japonais et le français natif lorsqu'ils existent, et exclut les colonnes
+techniques du calcul des longueurs. Les textes natifs ne deviennent prioritaires
+qu'après validation ; une traduction techniquement intacte n'est pas une preuve
+de justesse éditoriale. Conserver les variantes associées aux anciennes sources.
+
 - comparaison des clés et de leur ordre avec le lot source ;
 - variables, balises et retours techniques identiques ;
 - aucun `oe` remplacé par la ligature `œ` ;

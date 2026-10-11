@@ -5,6 +5,13 @@
       {
         "game_version": "1.1.1",
         "source_profile_sha256": "04e8f13ab07b32e838ff70509042f9e0b5251d439f0c194a0af5d2465182b25b"
+      },
+      {
+        "game_build_id": "25780236",
+        "game_version": "1.2.0",
+        "source_profile_sha256": "6e341117570035bcb93332432235b1dd30a80a341053551946d527b791f4cbe2",
+        "tested": true,
+        "notes": "Test en jeu concluant confirmé par Bertrand le 11 octobre 2026 ; version affichée 1.2.0."
       }
     ],
     "demo": [

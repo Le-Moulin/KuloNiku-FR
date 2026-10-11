@@ -29,12 +29,14 @@ from .batching import (
 from .i2_asset import LanguageSource, find_i2_object
 from .installation import (
     atomic_copy,
+    backup_for_patched_hash,
     backup_asset,
     detect_asset,
     installation_state,
     latest_backup_for,
     require_writable_asset,
     resign_macos,
+    user_data_dir,
 )
 from .review_workspace import (
     build_review_payload,
@@ -43,20 +45,17 @@ from .review_workspace import (
     read_translation_rows,
     write_review_workspace,
 )
-from .translation import apply_french, lint_translation, source_character_limit
+from .translation import apply_french, lint_translation, source_character_limit, target_language_codes
+from .localization import SOURCE_FIELDS, approved_native, source_limit, source_row, source_value
 
 
-CSV_FIELDS = [
-    "key",
-    "english",
-    "indonesian",
-    "spanish",
-    "thai",
-    "chinese_simplified",
-    "chinese_traditional",
-    "german",
-    "portuguese",
-]
+CSV_FIELDS = SOURCE_FIELDS
+
+
+def artifact_workspace() -> Path:
+    workspace = user_data_dir() / "work"
+    workspace.mkdir(parents=True, exist_ok=True)
+    return workspace
 
 
 def sha256(path: Path) -> str:
@@ -98,10 +97,7 @@ def command_extract(args) -> int:
         writer = csv.DictWriter(stream, fieldnames=CSV_FIELDS, lineterminator="\n")
         writer.writeheader()
         for term in source.terms:
-            row = {"key": term.key}
-            for index, field in enumerate(CSV_FIELDS[1:]):
-                row[field] = term.translations[index] if index < len(term.translations) else ""
-            writer.writerow(row)
+            writer.writerow(source_row(source, term))
     print(f"{len(source.terms)} termes extraits vers {destination}")
     return 0
 
@@ -111,7 +107,7 @@ def command_context(args) -> int:
     destination = Path(args.output).resolve()
     _, _, source = load_source(path)
     destination.parent.mkdir(parents=True, exist_ok=True)
-    language_fields = [language.code for language in source.languages]
+    language_fields = [language.code for language in source.languages if language.code]
     fields = ["key", "category", "max_source_chars", *language_fields]
     with destination.open("w", newline="", encoding="utf-8") as stream:
         writer = csv.DictWriter(stream, fieldnames=fields, lineterminator="\n")
@@ -121,10 +117,10 @@ def command_context(args) -> int:
             row = {
                 "key": term.key,
                 "category": category,
-                "max_source_chars": source_character_limit(term),
+                "max_source_chars": source_limit(source, term),
             }
-            for index, code in enumerate(language_fields):
-                row[code] = term.translations[index] if index < len(term.translations) else ""
+            for code in language_fields:
+                row[code] = source_value(source, term, code)
             writer.writerow(row)
     print(f"Contexte de {len(source.terms)} termes extrait vers {destination}")
     print("Ce fichier contient les textes du jeu : gardez-le dans work/ et ne le publiez pas.")
@@ -172,7 +168,9 @@ def review_source(game: Path) -> tuple[Path, str, LanguageSource, bool]:
         ensure_unpatched_source(source)
     except ValueError as patched_error:
         try:
-            source_path, manifest = latest_backup_for(game_asset.path)
+            source_path, manifest = backup_for_patched_hash(game_asset.path, sha256(game_asset.path))
+            if sha256(source_path) != manifest.get("original_sha256"):
+                raise RuntimeError("La sauvegarde originale ne correspond plus à son manifeste SHA-256.")
         except FileNotFoundError:
             raise patched_error
         _, _, source = load_source(source_path)
@@ -239,8 +237,8 @@ def command_prepare_review_test(args) -> int:
                 {
                     "key": key,
                     "source_hash": reference_hash(
-                        term.translations[0] if term.translations else "",
-                        term.translations[1] if len(term.translations) > 1 else "",
+                        source_value(source, term, "en"),
+                        source_value(source, term, "id"),
                     ),
                 }
             )
@@ -279,8 +277,8 @@ def source_profile_hash(source: LanguageSource) -> str:
     """Fingerprint a complete localization source without publishing its text."""
     digest = hashlib.sha256()
     for term in sorted(source.terms, key=lambda item: item.key):
-        english = term.translations[0] if term.translations else ""
-        indonesian = term.translations[1] if len(term.translations) > 1 else ""
+        english = source_value(source, term, "en")
+        indonesian = source_value(source, term, "id")
         digest.update(term.key.encode("utf-8"))
         digest.update(b"\0")
         digest.update(reference_hash(english, indonesian).encode("ascii"))
@@ -301,7 +299,7 @@ def source_recognition(source: LanguageSource, translations_path: Path, edition:
     hashes = {
         item.get("source_profile_sha256")
         for item in known
-        if isinstance(item, dict)
+        if isinstance(item, dict) and item.get("tested", True)
     }
     return "known" if source_profile_hash(source) in hashes else "unknown"
 
@@ -351,8 +349,8 @@ def resolve_french_for_source(
     """
     actual_hashes = {
         term.key: reference_hash(
-            term.translations[0] if term.translations else "",
-            term.translations[1] if len(term.translations) > 1 else "",
+            source_value(source, term, "en"),
+            source_value(source, term, "id"),
         )
         for term in source.terms
     }
@@ -392,11 +390,11 @@ def translation_profile_paths(
             raise FileNotFoundError(f"Profil source absent : {hashes_path}")
         hashes_path = None
     overrides_path = None
-    if edition == "demo":
+    if edition in {"demo", "full"}:
         overrides_path = (
             Path(compatibility_overrides).resolve()
             if compatibility_overrides
-            else translations_path.with_name("demo-overrides.csv")
+            else translations_path.with_name(f"{edition}-overrides.csv")
         )
         if not overrides_path.exists():
             if compatibility_overrides:
@@ -445,7 +443,10 @@ def translation_bundle_hash(
         compatibility_overrides=compatibility_overrides,
     )
     digest = hashlib.sha256()
-    for path in (translations_path, hashes_path, overrides_path):
+    for path in (translations_path, hashes_path, overrides_path,
+                 translations_path.with_name("native-approvals.csv")):
+        if path is not None and not path.exists():
+            continue
         if path is None:
             continue
         digest.update(path.name.encode("utf-8"))
@@ -475,24 +476,28 @@ def command_build(args) -> int:
         source_hashes=getattr(args, "source_hashes", None),
         compatibility_overrides=getattr(args, "compatibility_overrides", None),
     )
+    native = approved_native(source, csv_path.with_name("native-approvals.csv"))
+    translations.update(native)
+    translations["SETTINGS_LANGUAGESELECTION"] = "Français"
+    targets = target_language_codes(source, None if getattr(args, "append_language", False) else args.slot_language)
     warnings = []
     by_key = {term.key: term for term in source.terms}
     for key, value in translations.items():
         if key in by_key:
-            warnings.extend(lint_translation(by_key[key], value))
+            warnings.extend(lint_translation(by_key[key], value, source=source))
     slot_language = None if getattr(args, "append_language", False) else args.slot_language
     replaced, fallback_count, unknown_keys = apply_french(
         source, translations, slot_language=slot_language
     )
     source_codes = [language.code for language in source.languages]
-    target_code = "fr" if "fr" in source_codes else slot_language
-    target_index = [language.code for language in source.languages].index(target_code)
+    targets = target_language_codes(source, slot_language)
+    target_indices = [source_codes.index(code) for code in targets]
     patched_raw = source.serialize()
     reparsed = LanguageSource.parse(patched_raw)
     reparsed_selection = next(
         term for term in reparsed.terms if term.key == "SETTINGS_LANGUAGESELECTION"
     )
-    if reparsed_selection.translations[target_index] != "Français":
+    if any(reparsed_selection.translations[index] != "Français" for index in target_indices):
         raise RuntimeError("Le contrôle du contenu français a échoué.")
 
     obj.set_raw_data(patched_raw)
@@ -504,7 +509,7 @@ def command_build(args) -> int:
     validation_selection = next(
         term for term in validation.terms if term.key == "SETTINGS_LANGUAGESELECTION"
     )
-    if validation_selection.translations[target_index] != "Français":
+    if any(validation_selection.translations[index] != "Français" for index in target_indices):
         raise RuntimeError("Le fichier final ne contient pas la langue française.")
 
     metadata = {
@@ -517,6 +522,9 @@ def command_build(args) -> int:
         "translation_keys_rejected_source_change": rejected,
         "compatibility_overrides_applied": applied_overrides,
         "mode": f"slot:{slot_language}" if slot_language else "append-experimental",
+        "target_languages": targets,
+        "terms_native_french": len(native),
+        "terms_community_french": replaced - len(native),
         "warnings": [warning.__dict__ for warning in warnings],
     }
     metadata_path = output_path.with_suffix(output_path.suffix + ".json")
@@ -542,7 +550,7 @@ def command_lint(args) -> int:
     warnings = []
     for key, value in translations.items():
         if key in by_key:
-            warnings.extend(lint_translation(by_key[key], value))
+            warnings.extend(lint_translation(by_key[key], value, source=source))
     unknown = sorted(set(translations) - set(by_key))
     for warning in warnings:
         print(f"{warning.key}: {warning.kind}: {warning.message}")
@@ -560,63 +568,46 @@ def command_install(args) -> int:
     codes = [language.code for language in installed_source.languages]
     if "en" not in codes:
         raise RuntimeError("La langue anglaise de repli est absente.")
-    selection = next(
-        (
-            term
-            for term in installed_source.terms
-            if term.key == "SETTINGS_LANGUAGESELECTION"
-        ),
-        None,
-    )
-    french_in_reused_slot = bool(
-        selection
-        and "de" in codes
-        and selection.translations[codes.index("de")] == "Français"
-    )
-    french_appended = "fr" in codes
-    updating = french_in_reused_slot or french_appended
+    if "de" not in codes:
+        raise RuntimeError("L’emplacement allemand nécessaire au menu est absent.")
+    backup_path = manifest_path = manifest = None
+    try:
+        backup_path, manifest = latest_backup_for(asset.path)
+    except FileNotFoundError:
+        pass
+    updating = bool(manifest and manifest.get("patched_sha256") == current_hash)
     source_path = asset.path
-    backup_path = None
-    manifest_path = None
-    manifest = None
-
     if updating:
-        try:
-            backup_path, manifest = latest_backup_for(asset.path)
-        except FileNotFoundError as error:
-            raise RuntimeError(
-                "Le français est présent, mais sa sauvegarde originale est introuvable. "
-                "Mise à jour refusée pour protéger le jeu."
-            ) from error
-        manifest_path = backup_path.parent / "manifest.json"
-        if manifest.get("patched_sha256") != current_hash:
-            raise RuntimeError(
-                "Le jeu patché diffère du dernier état vérifié. "
-                "Mise à jour automatique refusée pour protéger les fichiers."
-            )
         if sha256(backup_path) != manifest.get("original_sha256"):
             raise RuntimeError("La sauvegarde originale ne correspond plus à son manifeste SHA-256.")
         source_path = backup_path
-
+        manifest_path = backup_path.parent / "manifest.json"
     source_hash = sha256(source_path)
     _, _, parsed = load_source(source_path)
     translations, rejected, applied_overrides = load_resolved_french(
-        parsed,
-        translations_path,
-        edition=asset.edition,
+        parsed, translations_path, edition=asset.edition,
         source_hashes=getattr(args, "source_hashes", None),
         compatibility_overrides=getattr(args, "compatibility_overrides", None),
     )
+    native = approved_native(parsed, translations_path.with_name("native-approvals.csv"))
+    translations.update(native)
     game_keys = {term.key for term in parsed.terms}
     matched = len(set(translations) & game_keys)
     if matched == 0:
         raise RuntimeError("Aucune clé française ne correspond à cette version du jeu.")
+    translations["SETTINGS_LANGUAGESELECTION"] = "Français"
+    targets = target_language_codes(parsed, "de")
     print(f"Cible : {asset.path}")
     print(f"Édition : {asset.edition}; plateforme : {asset.platform}")
-    print(f"Mode : {'mise à jour directe' if updating else 'première installation'}")
+    print(f"Mode : {'mise à jour directe' if updating else 'installation sur le fichier actuel'}")
     print(f"SHA-256 source : {source_hash}")
-    print(f"Clés françaises reconnues : {matched}/{len(translations)}")
-    print(f"Nouvelles clés du jeu en repli anglais : {len(game_keys - set(translations))}")
+    print(f"Emplacements français : {', '.join(targets)}")
+    print(f"Clés françaises reconnues : {matched}")
+    print(f"Français du jeu approuvé : {len(native)}")
+    print(f"Clés du jeu en repli anglais : {len(game_keys - set(translations))}")
+    if source_recognition(parsed, translations_path, asset.edition) != "known":
+        print("Avertissement : cette version du jeu n’a pas encore été testée. "
+              "Les textes sans traduction française compatible resteront en anglais.")
     if rejected:
         print(f"Traductions écartées après changement de source : {rejected}")
     if applied_overrides:
@@ -624,62 +615,63 @@ def command_install(args) -> int:
     if not args.apply:
         print("Simulation terminée : aucune modification. Relancez avec --apply pour installer.")
         return 0
-
     require_writable_asset(asset.path)
-
+    if sha256(asset.path) != current_hash or sha256(source_path) != source_hash:
+        raise RuntimeError("Le fichier source a changé depuis la simulation. Relancez la vérification.")
     if not updating:
-        backup_path, manifest_path = backup_asset(asset, sha256)
+        backup_path, manifest_path = backup_asset(asset, sha256, expected_sha256=current_hash, pending=True)
         manifest = json.loads(manifest_path.read_text())
-    assert backup_path is not None
-    assert manifest_path is not None
-    assert manifest is not None
-
-    try:
-        with tempfile.TemporaryDirectory(prefix="kuloniku-fr-") as temporary_dir:
-            temporary = Path(temporary_dir)
-            output = temporary / "resources.assets"
-            rollback = temporary / "resources.assets.before-update"
-            shutil.copy2(asset.path, rollback)
-            build_args = argparse.Namespace(
-                assets=str(source_path), translations=str(translations_path), output=str(output),
-                force=False, slot_language="de", edition=asset.edition,
-                source_hashes=getattr(args, "source_hashes", None),
-                compatibility_overrides=getattr(args, "compatibility_overrides", None),
-            )
-            command_build(build_args)
-            try:
-                atomic_copy(output, asset.path)
-                resign_macos(asset.path)
-                _, _, validation = load_source(asset.path)
-                codes = [language.code for language in validation.languages]
-                target_index = codes.index("de")
-                selection = next(
-                    term
-                    for term in validation.terms
-                    if term.key == "SETTINGS_LANGUAGESELECTION"
-                )
-                if selection.translations[target_index] != "Français":
-                    raise RuntimeError("La validation finale de l’emplacement français a échoué.")
-            except Exception:
-                atomic_copy(rollback, asset.path)
-                resign_macos(asset.path)
-                raise
-    except Exception:
-        raise
-    manifest["patched_sha256"] = sha256(asset.path)
-    manifest["translation_keys_matched"] = matched
-    manifest["patcher_version"] = __version__
-    manifest["translation_bundle_sha256"] = translation_bundle_hash(
-        translations_path,
-        edition=asset.edition,
-        source_hashes=getattr(args, "source_hashes", None),
-        compatibility_overrides=getattr(args, "compatibility_overrides", None),
-    )
-    manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n")
-    if updating:
-        print(f"Mise à jour terminée. Sauvegarde originale conservée : {backup_path}")
-    else:
-        print(f"Installation terminée. Sauvegarde : {backup_path}")
+        source_path = backup_path
+    assert backup_path is not None and manifest_path is not None and manifest is not None
+    with tempfile.TemporaryDirectory(prefix="kuloniku-fr-", dir=artifact_workspace()) as temporary_dir:
+        temporary = Path(temporary_dir)
+        output = temporary / "resources.assets"
+        rollback = temporary / "resources.assets.before-update"
+        shutil.copy2(asset.path, rollback)
+        if sha256(rollback) != current_hash:
+            raise RuntimeError("La copie de retour arrière a échoué à la vérification SHA-256.")
+        command_build(argparse.Namespace(
+            assets=str(source_path), translations=str(translations_path), output=str(output),
+            force=False, slot_language="de", edition=asset.edition,
+            source_hashes=getattr(args, "source_hashes", None),
+            compatibility_overrides=getattr(args, "compatibility_overrides", None),
+        ))
+        candidate_hash = sha256(output)
+        if sha256(asset.path) != current_hash or sha256(source_path) != source_hash:
+            raise RuntimeError("Le fichier a changé pendant la préparation du patch. Aucune écriture effectuée.")
+        try:
+            atomic_copy(output, asset.path)
+            resign_macos(asset.path)
+            if sha256(asset.path) != candidate_hash:
+                raise RuntimeError("La vérification SHA-256 du patch installé a échoué.")
+            _, _, validation = load_source(asset.path)
+            selection = next(term for term in validation.terms if term.key == "SETTINGS_LANGUAGESELECTION")
+            if any(source_value(validation, selection, code) != "Français" for code in targets):
+                raise RuntimeError("La validation finale des emplacements français a échoué.")
+            committed = dict(manifest)
+            committed.update({
+                "pending": False, "patched_sha256": candidate_hash,
+                "translation_keys_matched": matched, "patcher_version": __version__,
+                "target_languages": targets, "terms_native_french": len(native),
+                "terms_community_french": matched - len(native),
+                "terms_fallback_english": len(game_keys - set(translations)),
+                "source_recognition": source_recognition(parsed, translations_path, asset.edition),
+                "translation_bundle_sha256": translation_bundle_hash(
+                    translations_path, edition=asset.edition,
+                    source_hashes=getattr(args, "source_hashes", None),
+                    compatibility_overrides=getattr(args, "compatibility_overrides", None),
+                ),
+            })
+            staged_manifest = temporary / "manifest.json"
+            staged_manifest.write_text(json.dumps(committed, ensure_ascii=False, indent=2) + "\n")
+            atomic_copy(staged_manifest, manifest_path)
+        except Exception:
+            atomic_copy(rollback, asset.path)
+            resign_macos(asset.path)
+            if sha256(asset.path) != current_hash:
+                raise RuntimeError("Le retour arrière a échoué à la vérification SHA-256.")
+            raise
+    print(f"{'Mise à jour' if updating else 'Installation'} terminée. Sauvegarde vérifiée : {backup_path}")
     return 0
 
 
@@ -706,6 +698,8 @@ def status_report(args) -> dict[str, object]:
     except FileNotFoundError:
         pass
     state = installation_state(current_hash, french_active, manifest)
+    if manifest and manifest.get("patched_sha256") == current_hash:
+        state = "patched"
     bundle_hash = translation_bundle_hash(
         translations_path,
         edition=asset.edition,
@@ -726,7 +720,7 @@ def status_report(args) -> dict[str, object]:
             try:
                 backup_path, _ = latest_backup_for(asset.path)
                 if sha256(backup_path) == manifest.get("original_sha256"):
-                    with tempfile.TemporaryDirectory(prefix="kuloniku-fr-status-") as temporary_dir:
+                    with tempfile.TemporaryDirectory(prefix="kuloniku-fr-status-", dir=artifact_workspace()) as temporary_dir:
                         expected = Path(temporary_dir) / "resources.assets"
                         build_args = argparse.Namespace(
                             assets=str(backup_path),
@@ -752,7 +746,11 @@ def status_report(args) -> dict[str, object]:
         "schema_version": 1,
         "state": state,
         "translation_state": translation_state,
-        "backup_available": manifest is not None,
+        "backup_available": bool(manifest and state in {"patched", "restored"}),
+        "target_languages": manifest.get("target_languages", ["de"]) if state == "patched" else target_language_codes(source, "de"),
+        "terms_native_french": manifest.get("terms_native_french", 0) if manifest else 0,
+        "terms_community_french": manifest.get("terms_community_french", 0) if manifest else 0,
+        "terms_fallback_english": manifest.get("terms_fallback_english", 0) if manifest else 0,
         "edition": asset.edition,
         "platform": asset.platform,
         "source_recognition": recognition,
@@ -782,8 +780,8 @@ def command_status(args) -> int:
     print(f"Édition : {report['edition']}; plateforme : {report['platform']}")
     if report["source_recognition"] == "unknown":
         print(
-            "Version du jeu non encore répertoriée : le patch reste installable ; "
-            "les textes nouveaux resteront en anglais jusqu'à leur traduction."
+            "Cette version du jeu n’a pas encore été testée. Le patch reste installable ; "
+            "les textes sans français compatible resteront en anglais."
         )
     print(f"SHA-256 actuel : {report['current_sha256']}")
 
@@ -803,6 +801,9 @@ def command_status(args) -> int:
 def command_restore(args) -> int:
     asset = detect_asset(Path(args.game))
     backup_path, manifest = latest_backup_for(asset.path)
+    current_hash = sha256(asset.path)
+    if current_hash not in {manifest.get("patched_sha256"), manifest.get("original_sha256")}:
+        raise RuntimeError("Le jeu a changé depuis ce patch. Cette sauvegarde appartient à une ancienne version ; restauration refusée.")
     if sha256(backup_path) != manifest["original_sha256"]:
         raise RuntimeError("La sauvegarde ne correspond pas à son manifeste SHA-256.")
     if not args.apply:
@@ -810,10 +811,22 @@ def command_restore(args) -> int:
         print("Simulation terminée : aucune modification. Relancez avec --apply pour restaurer.")
         return 0
     require_writable_asset(asset.path)
-    atomic_copy(backup_path, asset.path)
-    resign_macos(asset.path)
-    if sha256(asset.path) != manifest["original_sha256"]:
-        raise RuntimeError("La vérification finale de restauration a échoué.")
+    with tempfile.TemporaryDirectory(prefix="kuloniku-fr-restore-", dir=artifact_workspace()) as temporary_dir:
+        rollback = Path(temporary_dir) / "resources.assets"
+        shutil.copy2(asset.path, rollback)
+        if sha256(rollback) != current_hash or sha256(asset.path) != current_hash:
+            raise RuntimeError("Le fichier du jeu a changé avant la restauration.")
+        try:
+            atomic_copy(backup_path, asset.path)
+            resign_macos(asset.path)
+            if sha256(asset.path) != manifest["original_sha256"]:
+                raise RuntimeError("La vérification finale de restauration a échoué.")
+        except Exception:
+            atomic_copy(rollback, asset.path)
+            resign_macos(asset.path)
+            if sha256(asset.path) != current_hash:
+                raise RuntimeError("Le retour arrière de la restauration a échoué.")
+            raise
     print(f"Fichier original restauré : {asset.path}")
     return 0
 
@@ -1103,7 +1116,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     build_parser.add_argument(
         "--compatibility-overrides",
-        help="exceptions d'édition (demo-overrides.csv voisin pour la démo)",
+        help="exceptions d'édition (full-overrides.csv ou demo-overrides.csv voisin)",
     )
     build_parser.add_argument(
         "--slot-language",
@@ -1133,7 +1146,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     install_parser.add_argument(
         "--compatibility-overrides",
-        help="exceptions d'édition (demo-overrides.csv voisin pour la démo)",
+        help="exceptions d'édition (full-overrides.csv ou demo-overrides.csv voisin)",
     )
     install_parser.add_argument("--apply", action="store_true", help="effectuer réellement l’installation")
     install_parser.set_defaults(handler=command_install)

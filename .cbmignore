@@ -1,0 +1,17 @@
+# Données générées, caches et artefacts Unity : aucune valeur structurelle.
+.git/
+.qmd/
+.venv/
+.pytest_cache/
+.playwright-cli/
+.idea/
+.vscode/
+__pycache__/
+*.pyc
+*.log
+*.jsonl
+build/
+dist/
+package/
+work/
+outputs/

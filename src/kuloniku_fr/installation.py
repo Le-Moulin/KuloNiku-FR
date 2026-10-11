@@ -52,9 +52,26 @@ def detect_asset(game: Path) -> GameAsset:
     return GameAsset(path, system, edition)
 
 
-def backup_asset(asset: GameAsset, sha256_fn) -> tuple[Path, Path]:
+def backup_asset(
+    asset: GameAsset,
+    sha256_fn,
+    *,
+    expected_sha256: str | None = None,
+    pending: bool = False,
+) -> tuple[Path, Path]:
+    """Sauvegarde l'état actuel du jeu après avoir vérifié sa source.
+
+    Une sauvegarde ``pending`` est créée avant une installation, mais reste
+    invisible de ``latest_backup_for`` tant que l'appelant n'a pas confirmé le
+    patch et retiré ce marqueur de son manifeste.
+    """
+
     original_hash = sha256_fn(asset.path)
-    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    if expected_sha256 is not None and original_hash != expected_sha256:
+        raise RuntimeError(
+            "Le fichier source a changé avant la création de la sauvegarde."
+        )
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
     backup_dir = user_data_dir() / "backups" / f"{stamp}-{original_hash[:12]}"
     backup_dir.mkdir(parents=True, exist_ok=False)
     backup_path = backup_dir / "resources.assets"
@@ -64,11 +81,13 @@ def backup_asset(asset: GameAsset, sha256_fn) -> tuple[Path, Path]:
     manifest_path = backup_dir / "manifest.json"
     manifest = {
         "created_at": datetime.now(timezone.utc).isoformat(),
-        "target": str(asset.path),
+        "target": str(asset.path.resolve()),
         "platform": asset.platform,
         "edition": asset.edition,
         "original_sha256": original_hash,
     }
+    if pending:
+        manifest["pending"] = True
     manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n")
     return backup_path, manifest_path
 
@@ -121,9 +140,26 @@ def latest_backup_for(target: Path) -> tuple[Path, dict]:
     resolved = str(target.resolve())
     for manifest_path in backup_manifests():
         manifest = json.loads(manifest_path.read_text())
-        if manifest.get("target") == resolved:
+        if manifest.get("target") == resolved and not manifest.get("pending", False):
             return manifest_path.parent / "resources.assets", manifest
     raise FileNotFoundError(f"Aucune sauvegarde trouvée pour {resolved}.")
+
+
+def backup_for_patched_hash(target: Path, patched_sha256: str) -> tuple[Path, dict]:
+    """Retourne la sauvegarde associée exactement au patch actuellement lu."""
+
+    resolved = str(target.resolve())
+    for manifest_path in backup_manifests():
+        manifest = json.loads(manifest_path.read_text())
+        if (
+            manifest.get("target") == resolved
+            and not manifest.get("pending", False)
+            and manifest.get("patched_sha256") == patched_sha256
+        ):
+            return manifest_path.parent / "resources.assets", manifest
+    raise FileNotFoundError(
+        f"Aucune sauvegarde validée ne correspond au patch {patched_sha256}."
+    )
 
 
 def installation_state(

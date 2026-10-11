@@ -7,17 +7,7 @@ from pathlib import Path
 import re
 
 
-SOURCE_FIELDS = [
-    "key",
-    "english",
-    "indonesian",
-    "spanish",
-    "thai",
-    "chinese_simplified",
-    "chinese_traditional",
-    "german",
-    "portuguese",
-]
+from .localization import SOURCE_FIELDS
 
 # The current game strings stay first so a translator can work from the same
 # context as a regular batch.  The three trailing values make an update

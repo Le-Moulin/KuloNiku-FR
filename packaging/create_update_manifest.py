@@ -39,13 +39,22 @@ def main() -> None:
             info.external_attr = 0o644 << 16
             bundle.writestr(info, path.read_bytes(), compresslevel=9)
 
+    with ZipFile(archive, "a", compression=ZIP_DEFLATED, compresslevel=9) as bundle:
+        for name in ("full-overrides.csv", "native-approvals.csv"):
+            path = translations.with_name(name)
+            if path.exists():
+                info = ZipInfo(name, date_time=(1980, 1, 1, 0, 0, 0))
+                info.compress_type = ZIP_DEFLATED
+                info.external_attr = 0o644 << 16
+                bundle.writestr(info, path.read_bytes(), compresslevel=9)
+
     archive_hash = hashlib.sha256(archive.read_bytes()).hexdigest()
     bundle_hashes = {
         edition: translation_bundle_hash(
             translations,
             edition=edition,
             source_hashes=str(source_hashes),
-            compatibility_overrides=str(overrides),
+            compatibility_overrides=str(overrides) if edition == "demo" else None,
         )
         for edition in ("full", "demo")
     }

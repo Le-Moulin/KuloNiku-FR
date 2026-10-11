@@ -28,6 +28,7 @@ TRANSLATION_PACKAGE_FILES = {
     "demo-overrides.csv",
     "known-sources.json",
 }
+OPTIONAL_TRANSLATION_FILES = {"full-overrides.csv", "native-approvals.csv"}
 REVIEW_CONTEXT_FILES = {
     "review-overrides.csv",
     "TERMINOLOGY.md",
@@ -141,7 +142,7 @@ def extract_translation_package(archive: Path, destination: Path, expected_sha25
             names = {item.filename for item in bundle.infolist() if not item.is_dir()}
             if not TRANSLATION_PACKAGE_FILES.issubset(names):
                 raise ValueError("Le paquet de traduction est incomplet.")
-            for name in TRANSLATION_PACKAGE_FILES | REVIEW_CONTEXT_FILES | {"NOTICE.md"}:
+            for name in TRANSLATION_PACKAGE_FILES | OPTIONAL_TRANSLATION_FILES | REVIEW_CONTEXT_FILES | {"NOTICE.md"}:
                 if name not in names:
                     continue
                 target = temporary / name
@@ -1161,14 +1162,6 @@ class WindowsLauncher:
                 self.set_busy(False)
                 self.install_button.configure(state="disabled", text="Traduction à jour")
                 self.set_status("Installation propre et à jour", "La traduction installée correspond exactement à cette version.", "good")
-            elif state == "patched_unknown":
-                self.set_busy(False)
-                self.install_button.configure(state="disabled", text="Action indisponible")
-                self.set_status(
-                    "État du jeu à vérifier",
-                    "Le français est présent, mais le fichier diffère du dernier état connu. L’écriture est désactivée par sécurité.",
-                    "warning",
-                )
             else:
                 self.validate_install(report, output)
 
@@ -1191,7 +1184,7 @@ class WindowsLauncher:
             if report.get("source_recognition") == "unknown":
                 self.set_status(
                     "Version récente, français disponible",
-                    "Le patch est compatible. Les nouveaux textes absents resteront en anglais.",
+                    "Cette version du jeu n’a pas encore été testée. Les textes sans français compatible resteront en anglais.",
                     "info",
                 )
             elif is_update:

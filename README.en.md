@@ -55,7 +55,7 @@ some length overages still need visual in-game checks.
 ## Contribute
 
 You do not need to know how to code. The local **review workspace** compares all
-eight game languages, nearby keys, and the current French text. It also detects
+available game languages, nearby keys, and the current French text. It also detects
 missing translations automatically after a game update.
 
 In the Windows or macOS app, select the game, open **Options avancées**, then choose
